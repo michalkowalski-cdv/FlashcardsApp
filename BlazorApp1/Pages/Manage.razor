@@ -1,0 +1,231 @@
+@page "/manage"
+@using BlazorApp1.Models
+@using BlazorApp1.Services
+@using System.Globalization
+@inject IFlashcardService FlashcardService
+@inject UserService UserService
+@inject NavigationManager Nav
+
+<PageTitle>Zarządzaj Fiszkami</PageTitle>
+
+@if (!UserService.IsLoggedIn)
+{
+    <div class="alert alert-warning">
+        Nie jesteś zalogowany. <a href="login">Zaloguj się</a>, aby zarządzać fiszkami.
+    </div>
+}
+else if (isLoadingData)
+{
+    <div class="spinner-overlay">
+        <div class="text-center">
+            <div class="spinner mb-3 mx-auto"></div>
+            <h5>Pobieranie Twoich fiszek z chmury...</h5>
+        </div>
+    </div>
+}
+else
+{
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card p-3 sticky-top" style="top: 1rem;">
+                    <h4>@(isEditing ? "Edytuj Fiszkę" : "Dodaj Nową")</h4>
+                    <EditForm Model="@currentFlashcard" OnValidSubmit="HandleSubmit">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Kategoria</label>
+                            
+                            <select class="form-select mb-2" @onchange="OnCategorySelect" value="@selectedCategoryOption">
+                                @foreach (var cat in availableCategories)
+                                {
+                                    <option value="@cat">@cat</option>
+                                }
+                                <option value="__NEW__">+ Dodaj nową...</option>
+                            </select>
+
+                            @if (showNewCategoryInput)
+                            {
+                                <InputText class="form-control" 
+                                           @bind-Value="newCategoryName" 
+                                           placeholder="Wpisz nazwę nowej kategorii" />
+                            }
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Pytanie</label>
+                            <InputTextArea class="form-control" @bind-Value="currentFlashcard.Question" rows="3" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Odpowiedź</label>
+                            <InputTextArea class="form-control" @bind-Value="currentFlashcard.Answer" rows="3" />
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">@(isEditing ? "Zapisz Zmiany" : "Dodaj")</button>
+                        
+                        @if (isEditing)
+                        {
+                            <button type="button" class="btn btn-secondary w-100 mt-2" @onclick="CancelEdit">Anuluj</button>
+                        }
+                    </EditForm>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <h4>Twoja Baza Wiedzy (@flashcards.Count)</h4>
+                @if (flashcards.Any())
+                {
+                    <div class="list-group">
+                        @foreach (var card in flashcards)
+                        {
+                            <div class="list-group-item d-flex justify-content-between align-items-start">
+                                <div class="ms-2 me-auto">
+                                    <div class="fw-bold">@card.Question</div>
+                                    <span class="badge bg-secondary rounded-pill">@card.Category</span>
+                                    <p class="mb-1 text-success mt-1">Odp: @card.Answer</p>
+                                </div>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-warning me-1" @onclick="() => Edit(card)">Edytuj</button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(card.Id)">Usuń</button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-info">Brak fiszek. Dodaj coś!</div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Flashcard> flashcards = new();
+    private List<string> availableCategories = new();
+    private Flashcard currentFlashcard = new();
+    
+    private string selectedCategoryOption = "Ogólne";
+    private string newCategoryName = "";
+    private bool showNewCategoryInput = false;
+    private bool isEditing = false;
+    private bool isLoadingData = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (UserService.IsLoggedIn)
+        {
+            isLoadingData = true;
+            await LoadData();
+            isLoadingData = false;
+        }
+    }
+
+    private async Task LoadData()
+    {
+        flashcards = await FlashcardService.GetAllAsync();
+        flashcards = flashcards.OrderByDescending(f => f.CreatedAt).ToList();
+        
+        availableCategories = await FlashcardService.GetCategoriesAsync();
+        availableCategories.Sort();
+
+        if (!availableCategories.Contains("Ogólne")) availableCategories.Insert(0, "Ogólne");
+        
+        if (!isEditing) 
+        {
+            selectedCategoryOption = availableCategories.FirstOrDefault() ?? "Ogólne";
+            showNewCategoryInput = false;
+        }
+    }
+
+    private void OnCategorySelect(ChangeEventArgs e)
+    {
+        var selected = e.Value?.ToString();
+        if (selected == "__NEW__")
+        {
+            showNewCategoryInput = true;
+            newCategoryName = "";
+        }
+        else
+        {
+            showNewCategoryInput = false;
+            selectedCategoryOption = selected ?? "Ogólne";
+        }
+    }
+
+    private string NormalizeCategory(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return "Ogólne";
+        input = input.Trim();
+        if (input.Length == 1) return input.ToUpper();
+        return char.ToUpper(input[0]) + input.Substring(1).ToLower();
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(currentFlashcard.Question) || string.IsNullOrWhiteSpace(currentFlashcard.Answer))
+            return;
+
+        if (showNewCategoryInput)
+        {
+            currentFlashcard.Category = NormalizeCategory(newCategoryName);
+        }
+        else
+        {
+            currentFlashcard.Category = selectedCategoryOption;
+        }
+
+        if (isEditing)
+        {
+            await FlashcardService.UpdateAsync(currentFlashcard);
+            isEditing = false;
+        }
+        else
+        {
+            await FlashcardService.AddAsync(currentFlashcard);
+        }
+
+        var lastCategory = currentFlashcard.Category;
+        currentFlashcard = new Flashcard(); 
+        
+        isLoadingData = true;
+        await LoadData();
+        isLoadingData = false;
+        
+        selectedCategoryOption = lastCategory;
+        showNewCategoryInput = false;
+    }
+
+    private void Edit(Flashcard card)
+    {
+        currentFlashcard = new Flashcard
+        {
+            Id = card.Id,
+            Category = card.Category,
+            Question = card.Question,
+            Answer = card.Answer,
+            CreatedAt = card.CreatedAt,
+            UserId = card.UserId
+        };
+        
+        isEditing = true;
+        selectedCategoryOption = card.Category;
+        showNewCategoryInput = false;
+    }
+
+    private void CancelEdit()
+    {
+        currentFlashcard = new Flashcard();
+        isEditing = false;
+        showNewCategoryInput = false;
+        selectedCategoryOption = availableCategories.FirstOrDefault() ?? "Ogólne";
+    }
+
+    private async Task Delete(Guid id)
+    {
+        await FlashcardService.DeleteAsync(id);
+        isLoadingData = true;
+        await LoadData();
+        isLoadingData = false;
+    }
+}

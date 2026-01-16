@@ -1,12 +1,24 @@
 ﻿@inherits LayoutComponentBase
+@inject BlazorApp1.Services.UserService UserService
+@inject NavigationManager Nav
+@implements IDisposable
+
 <div class="page">
     <div class="sidebar">
-        <NavMenu/>
+        <NavMenu />
     </div>
 
     <main>
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            @if (UserService.IsLoggedIn)
+            {
+                <span class="me-3 fw-bold text-dark">Witaj, @UserService.CurrentUserId!</span>
+                <button class="btn btn-outline-danger btn-sm" @onclick="Logout">Wyloguj</button>
+            }
+            else
+            {
+                <a href="login" class="btn btn-link">Zaloguj się</a>
+            }
         </div>
 
         <article class="content px-4">
@@ -14,3 +26,42 @@
         </article>
     </main>
 </div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        UserService.OnChange += StateHasChanged;
+        
+        RedirectToLoginIfNeeded();
+    }
+    
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            RedirectToLoginIfNeeded();
+        }
+    }
+
+    private void RedirectToLoginIfNeeded()
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        bool isLoginPage = uri.AbsolutePath.Contains("login", StringComparison.OrdinalIgnoreCase);
+
+        if (!UserService.IsLoggedIn && !isLoginPage)
+        {
+            Nav.NavigateTo("login");
+        }
+    }
+
+    private async Task Logout()
+    {
+        await UserService.LogoutAsync();
+        Nav.NavigateTo("login");
+    }
+
+    public void Dispose()
+    {
+        UserService.OnChange -= StateHasChanged;
+    }
+}
