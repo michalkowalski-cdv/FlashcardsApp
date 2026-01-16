@@ -17,8 +17,10 @@
       <_ContentIncludedByDefault Remove="wwwroot\sample-data\weather.json" />
     </ItemGroup>
 
-    <Target Name="CopyVercelConfig" AfterTargets="Publish">
-      <Copy SourceFiles="vercel.json" DestinationFolder="$(PublishDir)wwwroot" />
-    </Target>
+    <ItemGroup>
+      <Content Update="wwwroot\vercel.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+    </ItemGroup>
 
 </Project>
