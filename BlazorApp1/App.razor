@@ -1,22 +1,37 @@
 ﻿@inject BlazorApp1.Services.UserService UserService
 
-
-<Router AppAssembly="@typeof(App).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"/>
-        <FocusOnNavigate RouteData="@routeData" Selector="h1"/>
-    </Found>
-    <NotFound>
-        <PageTitle>Not found</PageTitle>
-        <LayoutView Layout="@typeof(MainLayout)">
-            <p role="alert">Sorry, there's nothing at this address.</p>
-        </LayoutView>
-    </NotFound>
-</Router>
+@if (!isInitialized)
+{
+    <div class="spinner-overlay" style="height: 100vh; width: 100vw; position: fixed; top: 0; left: 0; background: white; z-index: 9999;">
+        <div class="text-center">
+            <div class="spinner mb-3 mx-auto"></div>
+            <p>Ładowanie aplikacji...</p>
+        </div>
+    </div>
+}
+else
+{
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"/>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1"/>
+        </Found>
+        <NotFound>
+            <PageTitle>Not found</PageTitle>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <p role="alert">Sorry, there's nothing at this address.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+}
 
 @code {
+    private bool isInitialized = false;
+
     protected override async Task OnInitializedAsync()
     {
         await UserService.InitializeAsync();
+        
+        isInitialized = true;
     }
 }
