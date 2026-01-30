@@ -23,7 +23,7 @@ Aplikacja jest wdrożona i dostępna pod adresem:
 
 ---
 
-## 🏗️ Spełnienie wymagań technicznych
+## Spełnienie wymagań technicznych
 
 Projekt został przygotowany zgodnie z wytycznymi akademickimi, implementując następujące elementy:
 
@@ -64,7 +64,7 @@ Aplikacja integruje się z bazą danych **Supabase (PostgreSQL)**.
 
 ---
 
-## 🌟 Elementy dodatkowe
+## Elementy dodatkowe
 
 1. **Interfejs Użytkownika:** Responsywny design zbudowany w Blazor WebAssembly z wykorzystaniem frameworka Bootstrap 5.
 2. **Klasy Abstrakcyjne i Interfejsy:**
