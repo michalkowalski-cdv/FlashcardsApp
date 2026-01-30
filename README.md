@@ -25,8 +25,6 @@ Aplikacja jest wdrożona i dostępna pod adresem:
 
 ## Spełnienie wymagań technicznych
 
-Projekt został przygotowany zgodnie z wytycznymi akademickimi, implementując następujące elementy:
-
 ### 1. Instrukcje warunkowe
 Wykorzystywane do sterowania logiką aplikacji i renderowaniem UI.
 - **Przykład:** W `MainLayout.razor` sprawdzanie stanu zalogowania `@if (UserService.IsLoggedIn)` w celu wyświetlenia odpowiednich elementów nawigacji.
@@ -77,4 +75,4 @@ Aplikacja integruje się z bazą danych **Supabase (PostgreSQL)**.
 
 ---
 **Autor:** Michał Kowalski
-**Projekt:** Programowanie Obiektowe - (CDV)
+**Projekt:** Programowanie Obiektowe - Laboratorium (CDV)
