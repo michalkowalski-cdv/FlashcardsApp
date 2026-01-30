@@ -1,5 +1,5 @@
 @page "/study"
-@using BlazorApp1.Models
+@using BlazorApp1.Models.OOP
 @using BlazorApp1.Services
 @inject IFlashcardService FlashcardService
 @inject UserService UserService
@@ -40,6 +40,8 @@ else
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-light">
                     Kategoria: <strong>@currentCard.Category</strong>
+                    <!-- Opcjonalnie: pokazujemy typ fiszki -->
+                    <span class="badge bg-secondary ms-2">@currentCard.GetType().Name.Replace("Flashcard", "")</span>
                     <span class="float-end text-muted">@currentIndex / @sessionCards.Count</span>
                 </div>
                 <div class="card-body py-5">
@@ -48,7 +50,8 @@ else
                     @if (showAnswer)
                     {
                         <div class="alert alert-success mt-4 animate__animated animate__fadeIn">
-                            <h4>@currentCard.Answer</h4>
+                            <!-- Zmiana: Używamy metody GetCorrectAnswer() ze względu na hermetyzację -->
+                            <h4>@currentCard.GetCorrectAnswer()</h4>
                         </div>
                     }
                 </div>
@@ -84,8 +87,11 @@ else
 
 @code {
     private List<string> categories = new();
-    private List<Flashcard> sessionCards = new();
-    private Flashcard? currentCard;
+    
+    // Zmiana: Używamy klasy bazowej FlashcardBase
+    private List<FlashcardBase> sessionCards = new();
+    private FlashcardBase? currentCard;
+    
     private int currentIndex = 0;
     private bool studySessionStarted = false;
     private bool showAnswer = false;
@@ -105,7 +111,8 @@ else
     {
         isLoading = true;
         
-        var allCards = await FlashcardService.GetAllAsync();
+        // Zmiana: Pobieramy obiekty OOP zamiast starych encji
+        var allCards = await FlashcardService.GetAllOOPAsync();
         
         if (category == null)
             sessionCards = allCards.OrderBy(x => Random.Shared.Next()).ToList();

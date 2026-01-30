@@ -1,99 +1,102 @@
 @page "/manage"
-@using BlazorApp1.Models
+@using BlazorApp1.Models.OOP
 @using BlazorApp1.Services
-@using System.Globalization
 @inject IFlashcardService FlashcardService
 @inject UserService UserService
-@inject NavigationManager Nav
 
 <PageTitle>Zarządzaj Fiszkami</PageTitle>
 
 @if (!UserService.IsLoggedIn)
 {
-    <div class="alert alert-warning">
-        Nie jesteś zalogowany. <a href="login">Zaloguj się</a>, aby zarządzać fiszkami.
-    </div>
-}
-else if (isLoadingData)
-{
-    <div class="spinner-overlay">
-        <div class="text-center">
-            <div class="spinner mb-3 mx-auto"></div>
-            <h5>Pobieranie Twoich fiszek z chmury...</h5>
-        </div>
-    </div>
+    <div class="alert alert-warning">Zaloguj się!</div>
 }
 else
 {
     <div class="container mt-4">
         <div class="row">
-            <div class="col-md-4">
-                <div class="card p-3 sticky-top" style="top: 1rem;">
-                    <h4>@(isEditing ? "Edytuj Fiszkę" : "Dodaj Nową")</h4>
-                    <EditForm Model="@currentFlashcard" OnValidSubmit="HandleSubmit">
+            <div class="col-md-5">
+                <div class="card p-3 mb-4">
+                    <h4>Dodaj nową fiszkę</h4>
+                    <EditForm Model="@tempModel" OnValidSubmit="HandleSubmit">
                         
                         <div class="mb-3">
                             <label class="form-label">Kategoria</label>
-                            
-                            <select class="form-select mb-2" @onchange="OnCategorySelect" value="@selectedCategoryOption">
-                                @foreach (var cat in availableCategories)
-                                {
-                                    <option value="@cat">@cat</option>
-                                }
-                                <option value="__NEW__">+ Dodaj nową...</option>
+                            <select class="form-select" @bind="selectedCategory">
+                                @foreach (var cat in categories) { <option value="@cat">@cat</option> }
+                                <option value="__NEW__">+ Nowa...</option>
                             </select>
-
-                            @if (showNewCategoryInput)
+                            @if (selectedCategory == "__NEW__")
                             {
-                                <InputText class="form-control" 
-                                           @bind-Value="newCategoryName" 
-                                           placeholder="Wpisz nazwę nowej kategorii" />
+                                <input class="form-control mt-2" @bind="newCategoryName" placeholder="Nazwa kategorii" />
                             }
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Pytanie</label>
-                            <InputTextArea class="form-control" @bind-Value="currentFlashcard.Question" rows="3" />
+                            <label class="form-label">Typ Fiszki</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="type" id="t1" autocomplete="off" 
+                                       checked="@(isTextType)" @onclick="() => isTextType = true">
+                                <label class="btn btn-outline-primary" for="t1">Tekstowa</label>
+
+                                <input type="radio" class="btn-check" name="type" id="t2" autocomplete="off"
+                                       checked="@(!isTextType)" @onclick="() => isTextType = false">
+                                <label class="btn btn-outline-primary" for="t2">Quiz (ABCD)</label>
+                            </div>
                         </div>
+
                         <div class="mb-3">
-                            <label class="form-label">Odpowiedź</label>
-                            <InputTextArea class="form-control" @bind-Value="currentFlashcard.Answer" rows="3" />
+                            <label class="form-label">Pytanie</label>
+                            <InputTextArea class="form-control" @bind-Value="tempModel.Question" required />
                         </div>
-                        
-                        <button type="submit" class="btn btn-primary w-100">@(isEditing ? "Zapisz Zmiany" : "Dodaj")</button>
-                        
-                        @if (isEditing)
+
+                        @if (isTextType)
                         {
-                            <button type="button" class="btn btn-secondary w-100 mt-2" @onclick="CancelEdit">Anuluj</button>
+                            <div class="mb-3">
+                                <label class="form-label">Poprawna odpowiedź</label>
+                                <InputTextArea class="form-control" @bind-Value="tempModel.Answer" required />
+                            </div>
                         }
+                        else
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Poprawna odpowiedź</label>
+                                <InputText class="form-control is-valid" @bind-Value="tempModel.Answer" placeholder="Np. Kot" required />
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Błędne odpowiedzi (oddziel przecinkami)</label>
+                                <InputText class="form-control" @bind-Value="wrongOptionsRaw" placeholder="Np. Pies, Ryba, Chomik" required />
+                                <small class="text-muted">System wymiesza odpowiedzi automatycznie.</small>
+                            </div>
+                        }
+
+                        <button type="submit" class="btn btn-success w-100">Dodaj Fiszkę</button>
                     </EditForm>
                 </div>
             </div>
 
-            <div class="col-md-8">
-                <h4>Twoja Baza Wiedzy (@flashcards.Count)</h4>
+            <div class="col-md-7">
+                <h4>Twoje Fiszki</h4>
                 @if (flashcards.Any())
                 {
                     <div class="list-group">
                         @foreach (var card in flashcards)
                         {
-                            <div class="list-group-item d-flex justify-content-between align-items-start">
-                                <div class="ms-2 me-auto">
-                                    <div class="fw-bold">@card.Question</div>
-                                    <span class="badge bg-secondary rounded-pill">@card.Category</span>
-                                    <p class="mb-1 text-success mt-1">Odp: @card.Answer</p>
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h5 class="mb-1">@card.Question</h5>
+                                    <small>@card.GetType().Name.Replace("Flashcard", "")</small>
                                 </div>
-                                <div>
-                                    <button class="btn btn-sm btn-outline-warning me-1" @onclick="() => Edit(card)">Edytuj</button>
-                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(card.Id)">Usuń</button>
-                                </div>
+                                <p class="mb-1">Odp: @card.GetCorrectAnswer()</p>
+                                <small class="text-muted">@card.Category</small>
+                                <button class="btn btn-sm btn-outline-danger float-end" @onclick="() => Delete(card.Id)">Usuń</button>
                             </div>
                         }
                     </div>
                 }
                 else
                 {
-                    <div class="alert alert-info">Brak fiszek. Dodaj coś!</div>
+                    <p>Brak fiszek.</p>
                 }
             </div>
         </div>
@@ -101,131 +104,63 @@ else
 }
 
 @code {
-    private List<Flashcard> flashcards = new();
-    private List<string> availableCategories = new();
-    private Flashcard currentFlashcard = new();
+    class FormModel { public string Question { get; set; } = ""; public string Answer { get; set; } = ""; }
     
-    private string selectedCategoryOption = "Ogólne";
+    private FormModel tempModel = new();
+    private List<FlashcardBase> flashcards = new();
+    private List<string> categories = new();
+    
+    private string selectedCategory = "Ogólne";
     private string newCategoryName = "";
-    private bool showNewCategoryInput = false;
-    private bool isEditing = false;
-    private bool isLoadingData = true;
+    private bool isTextType = true;
+    private string wrongOptionsRaw = "";
 
     protected override async Task OnInitializedAsync()
     {
-        if (UserService.IsLoggedIn)
-        {
-            isLoadingData = true;
-            await LoadData();
-            isLoadingData = false;
-        }
+        await LoadData();
     }
 
     private async Task LoadData()
     {
-        flashcards = await FlashcardService.GetAllAsync();
-        flashcards = flashcards.OrderByDescending(f => f.CreatedAt).ToList();
-        
-        availableCategories = await FlashcardService.GetCategoriesAsync();
-        availableCategories.Sort();
-
-        if (!availableCategories.Contains("Ogólne")) availableCategories.Insert(0, "Ogólne");
-        
-        if (!isEditing) 
+        if (UserService.IsLoggedIn)
         {
-            selectedCategoryOption = availableCategories.FirstOrDefault() ?? "Ogólne";
-            showNewCategoryInput = false;
+            flashcards = await FlashcardService.GetAllOOPAsync();
+            categories = await FlashcardService.GetCategoriesAsync();
+            if (!categories.Contains("Ogólne")) categories.Insert(0, "Ogólne");
         }
-    }
-
-    private void OnCategorySelect(ChangeEventArgs e)
-    {
-        var selected = e.Value?.ToString();
-        if (selected == "__NEW__")
-        {
-            showNewCategoryInput = true;
-            newCategoryName = "";
-        }
-        else
-        {
-            showNewCategoryInput = false;
-            selectedCategoryOption = selected ?? "Ogólne";
-        }
-    }
-
-    private string NormalizeCategory(string input)
-    {
-        if (string.IsNullOrWhiteSpace(input)) return "Ogólne";
-        input = input.Trim();
-        if (input.Length == 1) return input.ToUpper();
-        return char.ToUpper(input[0]) + input.Substring(1).ToLower();
     }
 
     private async Task HandleSubmit()
     {
-        if (string.IsNullOrWhiteSpace(currentFlashcard.Question) || string.IsNullOrWhiteSpace(currentFlashcard.Answer))
-            return;
+        string finalCategory = selectedCategory == "__NEW__" ? newCategoryName : selectedCategory;
+        if (string.IsNullOrWhiteSpace(finalCategory)) finalCategory = "Ogólne";
 
-        if (showNewCategoryInput)
+        if (isTextType)
         {
-            currentFlashcard.Category = NormalizeCategory(newCategoryName);
+            await FlashcardService.AddTextAsync(finalCategory, tempModel.Question, tempModel.Answer);
         }
         else
         {
-            currentFlashcard.Category = selectedCategoryOption;
+            var options = new List<string> { tempModel.Answer }; 
+            if (!string.IsNullOrWhiteSpace(wrongOptionsRaw))
+            {
+                var wrong = wrongOptionsRaw.Split(',').Select(x => x.Trim()).Where(x => !string.IsNullOrEmpty(x));
+                options.AddRange(wrong);
+            }
+
+            options = options.OrderBy(x => Random.Shared.Next()).ToList();
+            
+            await FlashcardService.AddChoiceAsync(finalCategory, tempModel.Question, tempModel.Answer, options);
         }
 
-        if (isEditing)
-        {
-            await FlashcardService.UpdateAsync(currentFlashcard);
-            isEditing = false;
-        }
-        else
-        {
-            await FlashcardService.AddAsync(currentFlashcard);
-        }
-
-        var lastCategory = currentFlashcard.Category;
-        currentFlashcard = new Flashcard(); 
-        
-        isLoadingData = true;
+        tempModel = new FormModel();
+        wrongOptionsRaw = "";
         await LoadData();
-        isLoadingData = false;
-        
-        selectedCategoryOption = lastCategory;
-        showNewCategoryInput = false;
-    }
-
-    private void Edit(Flashcard card)
-    {
-        currentFlashcard = new Flashcard
-        {
-            Id = card.Id,
-            Category = card.Category,
-            Question = card.Question,
-            Answer = card.Answer,
-            CreatedAt = card.CreatedAt,
-            UserId = card.UserId
-        };
-        
-        isEditing = true;
-        selectedCategoryOption = card.Category;
-        showNewCategoryInput = false;
-    }
-
-    private void CancelEdit()
-    {
-        currentFlashcard = new Flashcard();
-        isEditing = false;
-        showNewCategoryInput = false;
-        selectedCategoryOption = availableCategories.FirstOrDefault() ?? "Ogólne";
     }
 
     private async Task Delete(Guid id)
     {
         await FlashcardService.DeleteAsync(id);
-        isLoadingData = true;
         await LoadData();
-        isLoadingData = false;
     }
 }

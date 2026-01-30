@@ -1,4 +1,5 @@
 using BlazorApp1.Models;
+using BlazorApp1.Models.OOP;
 using Supabase.Postgrest;
 
 namespace BlazorApp1.Services;
@@ -14,69 +15,95 @@ public class SupabaseFlashcardService : IFlashcardService
         _userService = userService;
     }
 
-    public async Task<List<Flashcard>> GetAllAsync()
+    public async Task<List<FlashcardBase>> GetAllOOPAsync()
     {
-        if (string.IsNullOrEmpty(_userService.CurrentUserId))
-            return new List<Flashcard>();
+        if (string.IsNullOrEmpty(_userService.CurrentUserId)) return new List<FlashcardBase>();
 
-        var response = await _client.From<Flashcard>()
+        var response = await _client.From<FlashcardEntity>()
             .Filter("user_id", Constants.Operator.Equals, _userService.CurrentUserId)
             .Get();
 
-        return response.Models;
+        var oopList = new List<FlashcardBase>();
+
+        foreach (var entity in response.Models)
+        {
+            FlashcardBase flashcard;
+
+            if (entity.Type == "CHOICE")
+            {
+                var opts = string.IsNullOrEmpty(entity.Options) 
+                    ? new List<string>() 
+                    : entity.Options.Split('|').ToList();
+                
+                flashcard = new FlashcardChoice(entity.Question, entity.Answer, opts);
+            }
+            else
+            {
+                flashcard = new FlashcardText(entity.Question, entity.Answer);
+            }
+
+            flashcard.Id = entity.Id;
+            flashcard.Category = entity.Category;
+            flashcard.UserId = entity.UserId;
+            
+            oopList.Add(flashcard);
+        }
+
+        return oopList;
     }
 
-    public async Task AddAsync(Flashcard flashcard)
+    public async Task AddTextAsync(string category, string question, string answer)
     {
-        if (string.IsNullOrEmpty(_userService.CurrentUserId)) return;
-
-        flashcard.UserId = _userService.CurrentUserId;
-        await _client.From<Flashcard>().Insert(flashcard);
+        var entity = new FlashcardEntity
+        {
+            UserId = _userService.CurrentUserId,
+            Category = category,
+            Question = question,
+            Answer = answer,
+            Type = "TEXT",
+            Options = null
+        };
+        await _client.From<FlashcardEntity>().Insert(entity);
     }
 
-    public async Task UpdateAsync(Flashcard flashcard)
+    public async Task AddChoiceAsync(string category, string question, string answer, List<string> options)
     {
-        if (string.IsNullOrEmpty(_userService.CurrentUserId)) return;
-
-        flashcard.UserId = _userService.CurrentUserId;
-        await _client.From<Flashcard>().Update(flashcard);
+        var entity = new FlashcardEntity
+        {
+            UserId = _userService.CurrentUserId,
+            Category = category,
+            Question = question,
+            Answer = answer,
+            Type = "CHOICE",
+            Options = string.Join("|", options) 
+        };
+        await _client.From<FlashcardEntity>().Insert(entity);
     }
 
     public async Task DeleteAsync(Guid id)
     {
-        if (string.IsNullOrEmpty(_userService.CurrentUserId)) return;
-        
-        await _client.From<Flashcard>()
-            .Filter("id", Constants.Operator.Equals, id.ToString()) 
-            .Filter("user_id", Constants.Operator.Equals, _userService.CurrentUserId)
+        await _client.From<FlashcardEntity>()
+            .Filter("id", Constants.Operator.Equals, id.ToString())
             .Delete();
     }
-
+    
     public async Task<List<string>> GetCategoriesAsync()
     {
-        if (string.IsNullOrEmpty(_userService.CurrentUserId))
-            return new List<string>();
-
-        var response = await _client.From<Flashcard>()
+        var response = await _client.From<FlashcardEntity>()
             .Select("category")
             .Filter("user_id", Constants.Operator.Equals, _userService.CurrentUserId)
             .Get();
 
-        return response.Models
-            .Select(x => x.Category)
-            .Distinct()
-            .OrderBy(c => c)
-            .ToList();
+        return response.Models.Select(x => x.Category).Distinct().OrderBy(c => c).ToList();
     }
 
     public async Task<bool> UserExistsAsync(string userId)
     {
-        var response = await _client.From<Flashcard>()
+        var response = await _client.From<FlashcardEntity>()
             .Select("id")
             .Filter("user_id", Constants.Operator.Equals, userId)
             .Limit(1)
             .Get();
-
         return response.Models.Any();
     }
 }

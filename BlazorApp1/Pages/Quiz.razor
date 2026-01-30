@@ -1,0 +1,168 @@
+@page "/quiz"
+@using BlazorApp1.Models.OOP
+@using BlazorApp1.Services
+@inject IFlashcardService FlashcardService
+@inject UserService UserService
+
+<PageTitle>Quiz Wiedzy</PageTitle>
+
+<div class="container mt-4 text-center" style="max-width: 600px;">
+    @if (!gameStarted)
+    {
+        <h1 class="display-5 mb-4">Quiz Wiedzy</h1>
+        <p>Wybierz kategorię i sprawdź ile pamiętasz!</p>
+        <div class="d-grid gap-2">
+            <button class="btn btn-primary btn-lg" @onclick="() => StartGame(null)">Wszystkie kategorie</button>
+            @foreach (var cat in categories)
+            {
+                <button class="btn btn-outline-primary" @onclick="() => StartGame(cat)">@cat</button>
+            }
+        </div>
+    }
+    else if (currentCard != null)
+    {
+        <div class="card shadow">
+            <div class="card-header">
+                Pytanie @(currentIndex + 1) / @sessionCards.Count
+                <span class="badge bg-info float-end">@currentCard.Category</span>
+            </div>
+            <div class="card-body py-4">
+                <h3 class="card-title mb-4">@currentCard.Question</h3>
+
+                @if (resultMessage != null)
+                {
+                    <div class="@resultClass p-3 mb-3 rounded">
+                        <h4>@resultMessage</h4>
+                        @if (isCorrect == false)
+                        {
+                            <p>Poprawna odpowiedź: <strong>@currentCard.GetCorrectAnswer()</strong></p>
+                        }
+                    </div>
+                    <button class="btn btn-primary btn-lg" @onclick="NextCard">Następne pytanie</button>
+                }
+                else
+                {
+                    @if (currentCard is FlashcardChoice choiceCard)
+                    {
+                        <div class="d-grid gap-2">
+                            @foreach (var option in choiceCard.Options)
+                            {
+                                <button class="btn btn-outline-dark py-3" 
+                                        @onclick="() => CheckAnswer(option)">
+                                    @option
+                                </button>
+                            }
+                        </div>
+                    }
+                    else if (currentCard is FlashcardText textCard)
+                    {
+                        <div class="mb-3">
+                            <input @bind="userTextInput" class="form-control form-control-lg text-center" 
+                                   placeholder="Wpisz odpowiedź..." @onkeyup="@OnKeyUp" />
+                        </div>
+                        <button class="btn btn-success px-5" @onclick="() => CheckAnswer(userTextInput)">Sprawdź</button>
+                    }
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-success mt-4">
+            <h2>Koniec Quizu!</h2>
+            <p class="lead">Twój wynik: @score / @sessionCards.Count</p>
+            <button class="btn btn-primary" @onclick="Reset">Zagraj ponownie</button>
+        </div>
+    }
+</div>
+
+@code {
+    private List<string> categories = new();
+    private List<FlashcardBase> sessionCards = new();
+    private FlashcardBase? currentCard;
+    
+    private int currentIndex = 0;
+    private int score = 0;
+    private bool gameStarted = false;
+    
+    private string userTextInput = "";
+    private string? resultMessage = null;
+    private string resultClass = "";
+    private bool? isCorrect = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (UserService.IsLoggedIn)
+            categories = await FlashcardService.GetCategoriesAsync();
+    }
+
+    private async Task StartGame(string? category)
+    {
+        var allCards = await FlashcardService.GetAllOOPAsync();
+        
+        if (category == null)
+            sessionCards = allCards.OrderBy(x => Random.Shared.Next()).ToList();
+        else
+            sessionCards = allCards.Where(c => c.Category == category).OrderBy(x => Random.Shared.Next()).ToList();
+
+        if (!sessionCards.Any()) return;
+
+        currentIndex = 0;
+        score = 0;
+        gameStarted = true;
+        LoadCard();
+    }
+
+    private void LoadCard()
+    {
+        if (currentIndex < sessionCards.Count)
+        {
+            currentCard = sessionCards[currentIndex];
+            userTextInput = "";
+            resultMessage = null;
+            isCorrect = null;
+        }
+        else
+        {
+            currentCard = null;
+        }
+    }
+    
+    private void CheckAnswer(string answer)
+    {
+        if (currentCard == null) return;
+
+        bool result = currentCard.ValidateAnswer(answer);
+
+        if (result)
+        {
+            score++;
+            resultMessage = "Dobra odpowiedź!";
+            resultClass = "bg-success text-white";
+            isCorrect = true;
+        }
+        else
+        {
+            resultMessage = "Niestety, błąd.";
+            resultClass = "bg-danger text-white";
+            isCorrect = false;
+        }
+    }
+    
+    private void OnKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") CheckAnswer(userTextInput);
+    }
+
+    private void NextCard()
+    {
+        currentIndex++;
+        LoadCard();
+    }
+
+    private void Reset()
+    {
+        gameStarted = false;
+        currentCard = null;
+    }
+}
